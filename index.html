@@ -1264,7 +1264,34 @@ function w3dScanner(){
   }
   function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g,"\\$&"); }
   /* a selector that finds the same element again when the page is opened later */
+  /* a short piece of visible text that occurs once on the page, at the element: the link jumps there (#:~:text=) */
+  var ANCH = {}, ANCHN = 0, BODYTXT = typeof WeakMap === "function" ? new WeakMap() : null;
+  function ntext(t){ return String(t || "").replace(/\s+/g, " ").trim(); }
+  function anchorText(el){
+    try{
+      var doc = el.ownerDocument, b = doc && doc.body; if(!b) return "";
+      var all = BODYTXT && BODYTXT.get(doc); if(all === undefined || all === null){ all = ntext(b.innerText).toLowerCase(); if(BODYTXT) BODYTXT.set(doc, all); }
+      var once = function(t){ t = ntext(t); if(t.length < 8 || t.length > 140) return false; var lo = t.toLowerCase(), i = all.indexOf(lo); return i >= 0 && all.indexOf(lo, i + 1) < 0; };
+      var pick = function(words, fromEnd){ for(var n = 5; n <= 12; n += 2){ var w = fromEnd ? words.slice(-n) : words.slice(0, n), t = w.join(" "); if(once(t)) return t; if(w.length >= words.length) break; } return ""; };
+      var own = ntext(el.innerText || ""), t = own ? pick(own.split(" "), false) : "";
+      if(t) return t;
+      var vis = function(n){ var p = n.parentElement; return p && p.getClientRects().length && ntext(n.nodeValue).length > 2; };
+      var tw = doc.createTreeWalker(b, 4), node, before = "", after = "";
+      tw.currentNode = el; for(var k = 0; k < 400 && (node = tw.previousNode()); k++){ if(!el.contains(node) && vis(node)){ before = ntext(node.nodeValue) + " " + before; if(before.length > 60) break; } }
+      if(before && (t = pick(ntext(before).split(" "), true))) return t;
+      tw.currentNode = el; while(tw.lastChild && tw.lastChild()); for(var j = 0; j < 400 && (node = tw.nextNode()); j++){ if(!el.contains(node) && vis(node)){ after += " " + ntext(node.nodeValue); if(after.length > 60) break; } }
+      if(after && (t = pick(ntext(after).split(" "), false))) return t;
+    }catch(e){}
+    return "";
+  }
   function cssPath(el){
+    var p = cssPath0(el);
+    if(p && ANCHN < 3000){
+      try{ var key = String(el.ownerDocument.location.href).split("#")[0] + "|" + p; if(!(key in ANCH)){ var a = anchorText(el); if(a){ ANCH[key] = a; ANCHN++; } } }catch(e){}
+    }
+    return p;
+  }
+  function cssPath0(el){
     if(!el || el.nodeType !== 1) return "";
     var parts = [];
     while(el && el.nodeType === 1 && el.tagName !== "HTML" && parts.length < 9){
@@ -1907,7 +1934,7 @@ function w3dScanner(){
     }
     if(stage){ stage.remove(); stage = null; }
 
-    var data = {w3d:"scan", v:2, at: new Date().toISOString(), start: START, origin: ORIGIN, host: location.host,
+    var data = {w3d:"scan", v:2, at: new Date().toISOString(), start: START, origin: ORIGIN, host: location.host, anch: ANCH,
                 pages: pages, imgs: imgs, links: linkStatus, media: media, vkb: vkb, ifr: ifr, site: site, perf: perf, contrast: cont,
                 mobile: mobile, desktop: desktop, tablet: tablet, forms: forms, cfg: CFG, limitHit: limitHit, limit: CFG.limit};
     var json = JSON.stringify(data);
@@ -3208,12 +3235,13 @@ function w3dScanner(){
     if(!base || !/^https?:/.test(base)) return "";
     var tmp = document.createElement("div"); tmp.innerHTML = x.d || "";
     var F = {title:r.title, sev:SEVN[r.sev], v:r.sev, p:(tmp.textContent || "").slice(0, 300), fix:(r.fix || []).slice(0, 5)};
-    if(x.s) F.s = x.s; if(x.t) F.t = String(x.t).slice(0, 80); if(x.m) F.m = 1; if(x.vp) F.w = VPW[x.vp]; if(x.vp === "desktop") delete F.m;
+    var an = !x.t && x.s && SCAN && SCAN.anch ? (SCAN.anch[String(base).split("#")[0] + "|" + x.s] || "") : "";
+    if(x.s) F.s = x.s; if(x.t) F.t = String(x.t).slice(0, 80); else if(an) F.t = an.slice(0, 80); if(x.m) F.m = 1; if(x.vp) F.w = VPW[x.vp]; if(x.vp === "desktop") delete F.m;
     var u; try{ u = new URL(base); }catch(e){ return ""; }
     u.searchParams.set("w3d", JSON.stringify(F)); u.hash = "";
     var out = u.toString();
-    if(x.t){
-      var frag = String(x.t).replace(/\s+/g, " ").trim().split(" ").slice(0, 5).join(" ");
+    if(x.t || an){
+      var frag = an || String(x.t).replace(/\s+/g, " ").trim().split(" ").slice(0, 5).join(" ");
       if(frag.length > 3) out += "#:~:text=" + encodeURIComponent(frag).replace(/-/g, "%2D").replace(/,/g, "%2C");
     }
     return out;
