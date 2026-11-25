@@ -664,6 +664,20 @@ body.compact .brand-t{font-size:19px}
 @media (max-width:420px){ .brand-t,body.compact .brand-t{font-size:14px;letter-spacing:.04em} .brand img,body.compact .brand img{height:20px} .ab-in{gap:6px} }
 @media (prefers-reduced-motion:reduce){ .nav-drawer,.bg-ic{transition:none} }
 @media print{ .burger,.nav-drawer,.nd-ovl{display:none!important} }
+
+/* ======== password lock (server mode) ======== */
+.lock{position:fixed;inset:0;z-index:300;background:var(--paper);display:grid;place-items:center;padding:24px}
+.lock[hidden]{display:none}
+.lock-box{width:min(380px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:30px 28px;display:flex;flex-direction:column;gap:10px}
+.lock-brand{font-family:var(--body);font-weight:600;letter-spacing:.06em;color:var(--brand);font-size:14px}
+.lock-box h2{font-family:var(--display);font-size:42px;line-height:1;margin:4px 0 0;color:var(--ink)}
+.lock-box p{margin:0;color:var(--ink-soft);font-size:14px;font-weight:300}
+.lock-box input{background:var(--card2);border:1px solid var(--line);border-radius:8px;color:var(--ink);font-family:var(--body);font-size:16px;padding:11px 12px;margin-top:6px}
+.lock-box input:focus{outline:2px solid var(--brand);outline-offset:1px;border-color:transparent}
+.lock-msg{color:var(--work)!important;min-height:1.4em;font-weight:500!important}
+.lock-box button{margin-top:4px;height:42px}
+/* key fields are not used when the keys live on the server */
+body.srv .psi-fld{display:none}
 </style>
 </head>
 <body>
@@ -726,7 +740,7 @@ body.compact .brand-t{font-size:19px}
         <div class="pair">
           <div class="fld"><label for="p-load">זמן טעינה מרבי (שניות)</label><input id="p-load" type="number" step="0.5" value="4"></div>
           <div class="fld"><label for="p-mb">משקל עמוד מרבי (MB)</label><input id="p-mb" type="number" step="0.5" value="4"></div><div class="fld"><label for="p-vmb">משקל סרטון מרבי (MB)</label><input id="p-vmb" type="number" min="1" step="1" value="10"></div></div>
-        <div class="fld sub"><label for="p-psi">מפתח Google PageSpeed — לא חובה, אבל בלעדיו גוגל מגביל מאוד את מספר הבדיקות</label><input id="p-psi" type="password" autocomplete="off" placeholder="AIza…" dir="ltr"><p class="hint">נשמר רק בדפדפן הזה, לא בדוח ולא בקבצים שמייצאים.</p>
+        <div class="fld sub psi-fld"><label for="p-psi">מפתח Google PageSpeed — לא חובה, אבל בלעדיו גוגל מגביל מאוד את מספר הבדיקות</label><input id="p-psi" type="password" autocomplete="off" placeholder="AIza…" dir="ltr"><p class="hint">נשמר רק בדפדפן הזה, לא בדוח ולא בקבצים שמייצאים.</p>
         </div>
         <div class="fld"><label class="chk"><input type="checkbox" id="p-ana" checked> חובה שיהיה אנליטיקס (GA4 / GTM)</label></div>
         <div class="pair sub">
@@ -739,7 +753,7 @@ body.compact .brand-t{font-size:19px}
         <div class="fld"><label for="p-email">מייל לשליחת הבדיקה</label><input id="p-email" type="email" dir="ltr" value="test@example.com"></div>
         <div class="fld sub"><label for="p-words">מילים נוספות שנחשבות טקסט דמה (שורה לכל ביטוי)</label><textarea id="p-words" rows="3" placeholder="למשל: שם הלקוח הקודם&#10;050-0000000"></textarea></div>
         <div class="fld sub" style="margin-bottom:0">
-          <button class="ghost blk" id="ai-cfg">מפתח API והגדרות AI</button>
+          <button class="ghost blk" id="ai-cfg">הגדרות AI</button>
           <p class="hint" id="ai-hint"></p>
         </div>
       </div>
@@ -908,6 +922,17 @@ body.compact .brand-t{font-size:19px}
 
 <div class="wrap" id="view-kw" role="tabpanel" aria-labelledby="tab-kw" hidden><div id="kwv"></div></div>
 
+<div class="lock" id="lock" hidden role="dialog" aria-modal="true" aria-labelledby="lock-t">
+  <form class="lock-box" id="lock-f" autocomplete="on">
+    <b class="lock-brand" dir="ltr">WEBSITE CHECKER</b>
+    <h2 id="lock-t">כניסה</h2>
+    <p>הכלי נעול בסיסמה. מכניסים אותה פעם אחת בכל דפדפן.</p>
+    <input type="text" name="username" value="website-checker" autocomplete="username" hidden>
+    <input id="lock-in" type="password" autocomplete="current-password" placeholder="סיסמה" aria-label="סיסמה" required>
+    <p class="lock-msg" id="lock-msg" role="alert"></p>
+    <button type="submit" class="ghost primary" id="lock-go">כניסה</button>
+  </form>
+</div>
 <div class="nd-ovl" id="nd-ovl" hidden></div>
 <aside class="nav-drawer" id="nav-drawer" aria-label="תפריט ניווט" aria-hidden="true">
   <nav class="nd-list">
@@ -3227,8 +3252,8 @@ function w3dScanner(){
       return;
     }
     PSI_BUSY = true; renderSpeed();
-    var key = psiKey(), one = function(strategy){
-      return fetch("https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=" + encodeURIComponent(url) + "&strategy=" + strategy + "&category=PERFORMANCE" + (key ? "&key=" + encodeURIComponent(key) : ""))
+    var key = SRV.on ? (SRV.psi ? "srv" : "") : psiKey(), one = function(strategy){
+      return psiFetch(url, strategy)
         .then(null, function(){ throw new Error("אין חיבור ל־Google."); })
         .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, status:r.status, j:j}; }); })
         .then(function(x){
@@ -3496,29 +3521,68 @@ function w3dScanner(){
   function ovlClose(){ $("ovl").hidden = true; if(typeof micStop === "function") micStop(); if(typeof kwrPaint === "function") kwrPaint(); }
   $("ovl-x").onclick = ovlClose;
   $("ovl").addEventListener("click", function(e){ if(e.target === $("ovl")) ovlClose(); });
+  /* ---------- server mode: on Vercel, keys live in the server's environment; the browser only holds a password ---------- */
+  var SRV = {on:false, claude:false, psi:false};
+  function srvPass(){ try{ return localStorage.getItem("sc-pass") || ""; }catch(e){ return ""; } }
+  function aiReady(){ return SRV.on ? SRV.claude : !!aiCfg().key; }
+  function srvLock(msg){
+    var L = $("lock"); L.hidden = false; $("lock-msg").textContent = msg || ""; setTimeout(function(){ $("lock-in").focus(); }, 30);
+  }
+  function srvCheck(pass){
+    return fetch("/api/status", {headers:{"x-app-password":pass}, cache:"no-store"})
+      .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(j){ if(!j || j.ok !== true) throw 0; return j; });
+  }
+  function srvBoot(){
+    if(location.protocol === "file:") return Promise.resolve();
+    return srvCheck(srvPass()).then(function(j){
+      SRV.on = true;
+      document.body.classList.add("srv");
+      if(!j.configured){ srvLock("השרת עוד לא מוגדר: צריך להוסיף APP_PASSWORD ב־Vercel ולפרוס מחדש."); return; }
+      if(!j.auth){ srvLock(""); return; }
+      SRV.claude = !!j.claude; SRV.psi = !!j.psi; aiHint();
+    }, function(){ /* no /api here (opened locally) — keep the in-browser mode */ });
+  }
+  /* every Anthropic call goes through here */
+  function aiFetch(body){
+    if(SRV.on){
+      var raw = JSON.stringify(body);
+      if(raw.length > 4300000) return Promise.reject(new Error("הבקשה גדולה מדי לשרת (המגבלה של Vercel היא כ־4.5MB). אם צירפת קובץ — נסה קובץ קטן יותר, או רק את העמודים הרלוונטיים."));
+      return fetch("/api/claude", {method:"POST", headers:{"content-type":"application/json","x-app-password":srvPass()}, body:raw})
+        .then(function(r){ if(r.status === 401){ srvLock("הסיסמה כבר לא תקפה. הכנס אותה שוב."); } return r; });
+    }
+    var c = aiCfg();
+    return fetch("https://api.anthropic.com/v1/messages", {method:"POST",
+      headers:{"content-type":"application/json","x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify(body)});
+  }
+  function psiFetch(url, strategy){
+    if(SRV.on) return fetch("/api/pagespeed?url=" + encodeURIComponent(url) + "&strategy=" + strategy, {headers:{"x-app-password":srvPass()}})
+      .then(function(r){ if(r.status === 401) srvLock("הסיסמה כבר לא תקפה. הכנס אותה שוב."); return r; });
+    var key = psiKey();
+    return fetch("https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=" + encodeURIComponent(url) + "&strategy=" + strategy + "&category=PERFORMANCE" + (key ? "&key=" + encodeURIComponent(key) : ""));
+  }
   function aiSettings(){
     var c = aiCfg();
-    ovl("הגדרות AI", '<p>המפתח נשמר רק בדפדפן הזה. כל קריאה מחויבת בחשבון ה־API שלך.</p><h4>מפתח API</h4><input type="password" id="ai-k" value="' + esc(c.key || "") + '" placeholder="sk-ant-..."><h4>מודל</h4><input type="text" id="ai-m" value="' + esc(c.model || "claude-sonnet-5-5") + '">',
-      [{label:"שמירה", primary:true, fn:function(){ aiSaveCfg({key:$("ai-k").value.trim(), model:$("ai-m").value.trim() || "claude-sonnet-5-5"}); ovlClose(); aiHint(); say("נשמר"); }}, {label:"ביטול", fn:ovlClose}]);
+    var kf = SRV.on ? '<p>' + (SRV.claude ? 'המפתח מוגדר בשרת (Vercel) ולא מגיע לדפדפן.' : 'בשרת לא מוגדר ANTHROPIC_API_KEY. מוסיפים אותו ב־Vercel ← Settings ← Environment Variables, ופורסים מחדש.') + '</p>'
+                    : '<p>המפתח נשמר רק בדפדפן הזה. כל קריאה מחויבת בחשבון ה־API שלך.</p><h4>מפתח API</h4><input type="password" id="ai-k" value="' + esc(c.key || "") + '" placeholder="sk-ant-...">';
+    ovl("הגדרות AI", kf + '<h4>מודל</h4><input type="text" id="ai-m" value="' + esc(c.model || "claude-sonnet-5-5") + '">',
+      [{label:"שמירה", primary:true, fn:function(){ aiSaveCfg({key:SRV.on ? (c.key || "") : $("ai-k").value.trim(), model:$("ai-m").value.trim() || "claude-sonnet-5-5"}); ovlClose(); aiHint(); say("נשמר"); }}, {label:"ביטול", fn:ovlClose}]);
   }
-  function aiHint(){ var c = aiCfg(); $("ai-hint").textContent = c.key ? "מפתח מוגדר · " + (c.model || "claude-sonnet-5-5") : "לא הוגדר מפתח — קריאת מסמכים לא תפעל בלעדיו."; }
+  function aiHint(){ var c = aiCfg(); if(SRV.on){ $("ai-hint").textContent = SRV.claude ? "המפתח מוגדר בשרת · " + (c.model || "claude-sonnet-5-5") : "בשרת לא מוגדר ANTHROPIC_API_KEY"; return; } $("ai-hint").textContent = c.key ? "מפתח מוגדר · " + (c.model || "claude-sonnet-5-5") : "לא הוגדר מפתח — קריאת מסמכים לא תפעל בלעדיו."; }
   $("ai-cfg").addEventListener("click", function(e){ e.stopPropagation(); openCfg(false); aiSettings(); });
 
   function askAI(content, max, sys){
     var c = aiCfg();
-    if(!c.key) return Promise.reject({need:"key"});
-    return fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{"content-type":"application/json","x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body: JSON.stringify({model:c.model || "claude-sonnet-5-5", max_tokens:max || 4000,
+    if(!aiReady()) return Promise.reject({need:"key"});
+    return aiFetch({model:c.model || "claude-sonnet-5-5", max_tokens:max || 4000,
         system: sys || "אתה קורא הסכמי בנייה של אתרים בעברית ומחלץ מהם דרישות לבדיקת האתר לפני עלייה לאוויר. החזר JSON בלבד, בלי טקסט נוסף. null לכל מה שלא כתוב. אל תנחש.",
-        messages:[{role:"user", content:content}]})
-    }).then(null, function(){ throw new Error("אין תשובה מהשרת." + (location.protocol === "file:" ? " הקובץ פתוח מהדיסק, והדפדפן עלול לחסום — אם זה קורה, הגש אותו מכתובת http." : "")); })
-    .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error("שגיאה " + r.status + (r.status === 401 ? " — מפתח לא תקין" : "") + "\n" + t.slice(0,300)); }); return r.json(); })
+        messages:[{role:"user", content:content}]}).then(null, function(e){ if(e && e.message && /גדולה מדי/.test(e.message)) throw e; throw new Error("אין תשובה מהשרת." + (location.protocol === "file:" ? " הקובץ פתוח מהדיסק, והדפדפן עלול לחסום — אם זה קורה, הגש אותו מכתובת http." : "")); })
+    .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error("שגיאה " + r.status + (r.status === 401 ? (SRV.on ? " — הסיסמה לא תקפה" : " — מפתח לא תקין") : "") + "\n" + t.slice(0,300)); }); return r.json(); })
     .then(function(d){ return (d.content || []).filter(function(b){ return b.type === "text"; }).map(function(b){ return b.text; }).join("\n"); });
   }
   function aiJSON(t){ var f = t.match(/```(?:json)?\s*([\s\S]*?)```/); if(f) t = f[1]; var a = t.indexOf("{"), b = t.lastIndexOf("}"); if(a < 0 || b < a) throw new Error("התשובה לא הכילה JSON"); return JSON.parse(t.slice(a, b + 1)); }
-  $("r-ai").addEventListener("click", function(){ if(!aiCfg().key){ aiSettings(); return; } $("r-ai-in").click(); });
+  $("r-ai").addEventListener("click", function(){ if(!aiReady()){ aiSettings(); return; } $("r-ai-in").click(); });
   $("r-ai-in").addEventListener("change", function(){
     var f = this.files && this.files[0]; this.value = ""; if(!f) return;
     ovl("קריאת מסמך", '<div class="ai-wait"><span class="ai-spin"></span>קורא את ' + esc(f.name) + '…</div>', []);
@@ -3577,7 +3641,7 @@ function w3dScanner(){
       : '<p>לא הצלחתי לזהות בקובץ את שלוש הרמות (MUST / כדאי / Nice to have).</p>' + (raw ? '<p>אפשר לתת ל־AI לקרוא אותו, או להדביק את המילים ידנית בשלושת השדות.</p>' : '<p>אפשר להדביק את המילים ידנית בשלושת השדות.</p>'), acts);
   }
   function kwAI(raw, fname){
-    if(!aiCfg().key){ aiSettings(); return; }
+    if(!aiReady()){ aiSettings(); return; }
     ovl("מחקר מילים", '<div class="ai-wait"><span class="ai-spin"></span>קורא את ' + esc(fname) + '…</div>', []);
     var content = raw.block ? [raw.block] : [];
     content.push({type:"text", text:(raw.text ? "זה התוכן של טופס מחקר מילות מפתח:\n\n" + raw.text.slice(0, 80000) + "\n\n" : "") +
@@ -3640,10 +3704,10 @@ function w3dScanner(){
       '<h4>הערות למחקר — לא חובה</h4><textarea id="kwr-notes" rows="3" placeholder="למשל: סניפים בירושלים ובבית שמש · הקהל הוא מפיצים ולא צרכנים · השירות X לא קיים יותר">' + esc(KWR.notes) + '</textarea>' +
       '<label class="chk" style="margin-top:12px"><input type="checkbox" id="kwr-web"' + (KWR.web ? " checked" : "") + '> חיפוש ברשת — מתחרים ומונחים מהשוק (מוסיף עלות קטנה)</label>' +
       '<div class="kwr-cost" id="kwr-cost"></div>' +
-      (c.key ? '' : '<p class="hint">צריך מפתח API של Anthropic. הוא נשמר רק בדפדפן הזה.</p>');
+      (aiReady() ? '' : SRV.on ? '<p class="hint">בשרת לא מוגדר ANTHROPIC_API_KEY.</p>' + '' : '<p class="hint">צריך מפתח API של Anthropic. הוא נשמר רק בדפדפן הזה.</p>');
     var acts = [];
     if(!pg.length) acts.push({label:"לסריקה קודם", fn:function(){ ovlClose(); var st = document.querySelectorAll(".step")[2]; if(st) st.scrollIntoView({behavior:"smooth", block:"start"}); }});
-    acts.push(c.key ? {label:"הרצת המחקר", primary:!!pg.length, fn:function(){ kwrStart(); }} : {label:"הגדרת מפתח API", primary:true, fn:aiSettings});
+    acts.push(aiReady() ? {label:"הרצת המחקר", primary:!!pg.length, fn:function(){ kwrStart(); }} : {label:"הגדרת מפתח API", primary:true, fn:aiSettings});
     acts.push({label:"ביטול", fn:ovlClose});
     ovl("מחקר מילים עם AI", H, acts);
     var upd = function(){
@@ -3769,12 +3833,10 @@ function w3dScanner(){
     var once = function(){
       var body = {model:c.model || "claude-sonnet-5-5", max_tokens:max, system:sys, messages:msgs, stream:true};
       if(tools && tools.length) body.tools = tools;
-      return fetch("https://api.anthropic.com/v1/messages", {method:"POST",
-        headers:{"content-type":"application/json","x-api-key":c.key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-        body:JSON.stringify(body)})
-      .then(null, function(){ throw new Error("אין תשובה מהשרת." + (location.protocol === "file:" ? " הקובץ פתוח מהדיסק, והדפדפן עלול לחסום — אם זה קורה, הגש אותו מכתובת http." : "")); })
+      return aiFetch(body)
+      .then(null, function(e){ if(e && e.message && /גדולה מדי/.test(e.message)) throw e; throw new Error("אין תשובה מהשרת." + (location.protocol === "file:" ? " הקובץ פתוח מהדיסק, והדפדפן עלול לחסום — אם זה קורה, הגש אותו מכתובת http." : "")); })
       .then(function(r){
-        if(!r.ok) return r.text().then(function(t){ throw new Error("שגיאה " + r.status + (r.status === 401 ? " — מפתח לא תקין" : r.status === 404 ? " — שם המודל לא נמצא (בדוק בהגדרות ה־AI)" : r.status === 429 ? " — יותר מדי בקשות, נסה שוב בעוד דקה" : r.status === 529 ? " — השרת עמוס, נסה שוב" : "") + "\n" + t.slice(0, 300)); });
+        if(!r.ok) return r.text().then(function(t){ throw new Error("שגיאה " + r.status + (r.status === 401 ? (SRV.on ? " — הסיסמה לא תקפה" : " — מפתח לא תקין") : r.status === 404 ? " — שם המודל לא נמצא (בדוק בהגדרות ה־AI)" : r.status === 429 ? " — יותר מדי בקשות, נסה שוב בעוד דקה" : r.status === 529 ? " — השרת עמוס, נסה שוב" : "") + "\n" + t.slice(0, 300)); });
         var blocks = [], stop = null, buf = "", rd = r.body.getReader(), dec = new TextDecoder();
         var onEvent = function(ev){
           var t = ev.type;
@@ -4295,7 +4357,7 @@ function w3dScanner(){
   /* ---------- the SEO plan ---------- */
   function seoPlan(){
     if(!SCAN){ say("צריך קודם לסרוק"); return; }
-    if(!aiCfg().key){ aiSettings(); return; }
+    if(!aiReady()){ aiSettings(); return; }
     var KW = kwLists(), IGN = rules(REQ.ignore);
     var pg = SCAN.pages.filter(function(p){ return p.status < 400 && !IGN.some(function(r){ return ruleHit(r, p.url, p.title); }) && !/noindex/i.test(p.robots || ""); });
     pg = pg.slice(0, 1).concat(pg.slice(1).sort(function(a, b){ return b.words - a.words; })).slice(0, 25);
@@ -4582,6 +4644,17 @@ function w3dScanner(){
   $("p-psi").value = psiKey();
   $("p-psi").addEventListener("change", function(){ try{ localStorage.setItem("dg-psi-key", $("p-psi").value.trim()); }catch(e){} say($("p-psi").value.trim() ? "המפתח נשמר בדפדפן הזה" : "המפתח נמחק"); });
   fillForm(); scanState(); render(); aiHint(); kwrPaint(); kvTabCount(); kvView(SCAN ? "res" : "setup");
+  $("lock-f").addEventListener("submit", function(e){
+    e.preventDefault();
+    var p = $("lock-in").value; $("lock-go").disabled = true; $("lock-msg").textContent = "";
+    srvCheck(p).then(function(j){
+      $("lock-go").disabled = false;
+      if(!j.auth){ $("lock-msg").textContent = "הסיסמה לא נכונה."; $("lock-in").select(); return; }
+      try{ localStorage.setItem("sc-pass", p); }catch(err){}
+      SRV.claude = !!j.claude; SRV.psi = !!j.psi; $("lock").hidden = true; $("lock-in").value = ""; aiHint(); say("נכנסת");
+    }, function(){ $("lock-go").disabled = false; $("lock-msg").textContent = "אין חיבור לשרת. נסה שוב."; });
+  });
+  srvBoot();
 })();
 </script>
 </body>
