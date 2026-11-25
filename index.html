@@ -417,6 +417,19 @@ details.idx tr.ig td{color:var(--steel)}
 .kw-why dd{margin:0;color:var(--ink-soft);line-height:1.65;font-weight:300}
 .kw-why dd strong{color:var(--ink);font-weight:600}
 .kv-boxes{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:50px 0 0}
+.kv-ready{display:flex;gap:22px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:0 0 22px}
+.kv-ready h3{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;margin:0 0 8px;color:var(--ink)}
+.kv-ready .rd-txt{flex:1;min-width:240px}
+.kv-ready p{margin:0;font-size:14px;line-height:1.6;color:var(--ink-soft);font-weight:300}
+.kv-ready .rd-tiers{display:flex;gap:18px;flex-wrap:wrap;margin:8px 0 10px;font-size:13px;color:var(--ink-soft)}
+.kv-ready .rd-tiers b{color:var(--ink);font-weight:600}
+.kv-ready .rd-f{display:flex;gap:6px;flex-wrap:wrap}
+.kv-ready .rd-f button{font:inherit;font-size:13px;padding:5px 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink-soft);cursor:pointer}
+.kv-ready .rd-f button[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.kw-tagx.rd-ok{background:rgba(var(--bank-rgb),.12);color:var(--bank);font-weight:600}
+.kw-tagx.rd-part{background:rgba(var(--brand-rgb),.12);color:var(--wait-text);font-weight:600}
+.kw-tagx.rd-miss{background:rgba(var(--work-rgb),.12);color:var(--work);font-weight:600}
+#kv-ready[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
 .kv-box{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
 .kv-box h3{font-family:var(--display);font-weight:700;font-size:26px;line-height:1;margin:0 0 10px;color:var(--ink)}
 .kv-box ul{margin:0;padding:0 18px 0 0;font-size:14px;line-height:1.65;color:var(--ink-soft);font-weight:300}
@@ -4245,7 +4258,59 @@ function w3dScanner(){
   $("kwr-chip").addEventListener("click", kwrShowLive);
 
   /* ---------- the keyword research tab ---------- */
-  var KWV = {tab:"", q:"", intent:"all", open:{}};
+  /* ---------- readiness: is each researched phrase on its target page in the latest scan ---------- */
+  function kwReady(R, tabId){
+    var H = function(h){ return String(h || "").replace(/^www\./, ""); };
+    if(!SCAN || !SCAN.pages) return {none:"noscan"};
+    if(R.host && SCAN.host && H(R.host) !== H(SCAN.host)) return {none:"other"};
+    var pages = kwrPages().map(function(p){
+      var hh = p.h || [];
+      return {p:p, path:pathOf(p.url), title:nz(p.title), desc:nz(p.desc), url:nz(pathOf(p.url)), body:nz(p.text),
+        h1:nz(hh.filter(function(h){ return h[0] === 1; }).map(function(h){ return h[1]; }).join(" | ")),
+        h2:nz(hh.filter(function(h){ return h[0] > 1; }).map(function(h){ return h[1]; }).join(" | "))};
+    });
+    var target = function(g){
+      g = String(g || "").trim();
+      if(!g || /^(עמוד חדש|new page)/i.test(g)) return {neu:true};
+      if(/^(\/|https?:)/i.test(g)){ var tp = pathOf(/^https?:/i.test(g) ? g : "http://x" + g); return {pg:pages.filter(function(x){ return x.path === tp; })[0], tp:tp}; }
+      var gn = nz(g);
+      if(/^(דף הבית|עמוד הבית|הבית|בית|home|homepage|ראשי)$/.test(gn)) return {pg:pages.filter(function(x){ return x.path === "/"; })[0], tp:"/"};
+      return {pg:pages.filter(function(x){ return x.title.indexOf(gn) >= 0 || x.h1.indexOf(gn) >= 0 || x.url.indexOf(gn) >= 0; })[0], tp:g};
+    };
+    var look = function(x, k){
+      var re = kre(k), f = {}, w = nz(k).split(" ").filter(function(z){ return z.length > 1; });
+      ["title","h1","h2","url","desc"].forEach(function(n){ f[n] = re.test(x[n]); });
+      f.n = (x.body.match(kre(k, true)) || []).length;
+      f.part = !f.n && w.length > 1 && w.every(function(z){ return kre(z).test(x.body); });
+      f.any = f.title || f.h1 || f.h2 || f.url || f.desc || f.n;
+      return f;
+    };
+    var W = {must:3, important:2, nice:1}, out = {}, tot = 0, got = 0, tiers = {};
+    R.rows.filter(function(r){ return r.tab === tabId; }).forEach(function(r){
+      var t = target(r.page), res = null;
+      if(t.pg){ var f = look(t.pg, r.p); if((f.title || f.h1) && (f.n || f.desc || f.h2)) res = {s:"ok", f:f}; else if(f.any || f.part) res = {s:"part", f:f}; if(res) res.u = t.pg.p.url; }
+      if(!res){
+        var best = null;
+        pages.forEach(function(x){ if(best || x === t.pg) return; var f = look(x, r.p); if(f.title || f.h1 || f.n) best = {x:x, f:f}; });
+        res = best ? {s:"part", f:best.f, u:best.x.p.url, elsewhere:true} : {s:"miss"};
+        res.nopg = t.pg ? "" : t.neu ? "new" : t.tp;
+      }
+      out[r.tier + ":" + r.p] = res;
+      tot += W[r.tier]; got += W[r.tier] * (res.s === "ok" ? 1 : res.s === "part" ? .5 : 0);
+      var T = tiers[r.tier] = tiers[r.tier] || {ok:0, part:0, miss:0}; T[res.s]++;
+    });
+    return {map:out, pct: tot ? 100 * got / tot : 0, tiers:tiers, at:SCAN.at};
+  }
+  function kwReadyText(x){
+    var PLN = {title:"Title", h1:"H1", h2:"כותרות משנה", desc:"תיאור המטא", url:"כתובת העמוד"};
+    var f = x.f || {}, where = Object.keys(PLN).filter(function(k){ return f[k]; }).map(function(k){ return PLN[k]; }).concat(f.n ? ["טקסט (" + f.n + "×)"] : []);
+    var pg = x.u ? pathOf(x.u) : "";
+    if(x.s === "miss") return x.nopg === "new" ? "חסר — צריך לבנות עמוד חדש בשבילו" : x.nopg ? "חסר — עמוד היעד (" + x.nopg + ") לא נמצא בסריקה" : "חסר — לא מופיע בעמוד היעד ולא בשום עמוד אחר";
+    if(x.elsewhere) return "חלקי — לא בעמוד היעד" + (x.nopg && x.nopg !== "new" ? " (" + x.nopg + " לא נמצא בסריקה)" : x.nopg === "new" ? " (עמוד חדש שעוד לא נבנה)" : "") + ". נמצא ב־" + pg + ": " + where.join(", ");
+    if(x.s === "part") return f.part && !f.any ? "חלקי — ב־" + pg + " המילים מופיעות בנפרד, לא כביטוי" : "חלקי — ב־" + pg + " נמצא ב: " + where.join(", ") + ". חסר ב: " + ["title","h1"].filter(function(k){ return !f[k]; }).map(function(k){ return PLN[k]; }).concat(f.n ? [] : ["טקסט"]).join(", ");
+    return "מיושם ב־" + pg + ": " + where.join(", ");
+  }
+  var KWV = {tab:"", q:"", intent:"all", open:{}, ready:false, rf:"all"};
   var KV_TXT = {
     he:{tiers:{must:["MUST HAVE","ביטויי חובה","הליבה המסחרית. ביטויים קרובים לפעולה — קנייה, פנייה, ביקור — ורובם ניתנים לכיסוי בעמודים שכבר קיימים באתר."],
                important:["IMPORTANT","ביטויים חשובים","אותו קהל בשלב מוקדם יותר: מונחים מקצועיים, רגולציה, השוואות. בדרך כלל דורשים תוכן חדש או הרחבה של עמוד קיים."],
@@ -4302,6 +4367,7 @@ function w3dScanner(){
     var T = R.tabs.filter(function(t){ return t.id === ST.tab; })[0];
     var L = KV_TXT[T.lang === "en" ? "en" : "he"];
     var rows = R.rows.filter(function(r){ return r.tab === T.id; });
+    var RD = !X && !pending && KWV.ready ? kwReady(R, T.id) : null, RDN = {ok:"מיושם", part:"חלקי", miss:"חסר"};
     var maxV = Math.max.apply(null, rows.map(function(r){ return r.v || 0; }).concat([1]));
     var sum = function(a){ return a.reduce(function(x, r){ return x + (r.v || 0); }, 0); };
     var allRows = R.rows;
@@ -4334,13 +4400,23 @@ function w3dScanner(){
       '<div class="kv-field"><input' + (X ? '' : ' id="kv-q"') + ' class="kv-qi" type="search" placeholder="חיפוש בתוך הביטויים…" aria-label="חיפוש בתוך הביטויים" value="' + esc(ST.q) + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>' +
       '<div class="kv-chips" role="group" aria-label="סינון לפי כוונה">' + ["all","commercial","brand","info","compare"].map(function(k){ return '<button type="button" class="kv-chip" data-intent="' + k + '" aria-pressed="' + (ST.intent === k) + '">' + KV_TXT.he.intents[k] + '</button>'; }).join("") + '</div>' +
       (X ? '<div class="kv-acts"><button type="button" class="ghost kv-allb">פתיחת הכל</button><button type="button" class="ghost kv-csvb">ייצוא CSV</button><button type="button" class="ghost kv-printb">הדפסה / PDF</button></div>'
-         : '<div class="kv-acts"><button type="button" class="ghost" id="kv-all">' + (Object.keys(ST.open).length ? "סגירת הכל" : "פתיחת הכל") + '</button><button type="button" class="ghost" id="kv-xhtml" title="קובץ HTML עצמאי בעיצוב הזה — לשליחה ללקוח">ייצוא HTML</button><button type="button" class="ghost" id="kv-xcsv">ייצוא CSV</button><button type="button" class="ghost" id="kv-print">הדפסה / PDF</button><button type="button" class="ghost" id="kv-new">מחקר חדש</button></div>') +
+         : '<div class="kv-acts">' + (pending ? '' : '<button type="button" class="ghost" id="kv-ready" aria-pressed="' + !!KWV.ready + '" title="כל ביטוי מול עמוד היעד שלו, לפי הסריקה האחרונה">מוכנות האתר</button>') + '<button type="button" class="ghost" id="kv-all">' + (Object.keys(ST.open).length ? "סגירת הכל" : "פתיחת הכל") + '</button><button type="button" class="ghost" id="kv-xhtml" title="קובץ HTML עצמאי בעיצוב הזה — לשליחה ללקוח">ייצוא HTML</button><button type="button" class="ghost" id="kv-xcsv">ייצוא CSV</button><button type="button" class="ghost" id="kv-print">הדפסה / PDF</button><button type="button" class="ghost" id="kv-new">מחקר חדש</button></div>') +
       '</div></div>';
+    if(RD){
+      if(RD.none) H += '<div class="kv-ready"><div class="rd-txt"><h3>מוכנות האתר</h3><p>' + (RD.none === "other" ? 'הסריקה האחרונה היא של <span dir="ltr">' + esc(SCAN.host) + '</span>, והמחקר של <span dir="ltr">' + esc(R.host) + '</span>. צריך לסרוק את האתר של המחקר.' : 'צריך סריקה של האתר כדי לבדוק אם הביטויים מיושמים בעמודים.') + '</p><div class="row" style="margin-top:10px"><button type="button" class="ghost primary" id="rd-scan">להכנת הבדיקה והסריקה</button></div></div></div>';
+      else {
+        var tn = {must:"חובה", important:"חשובים", nice:"משלימים"};
+        H += '<div class="kv-ready">' + ringSVG(84, 5, Math.round(RD.pct), RD.pct >= 80 ? "" : "") + '<div class="rd-txt"><h3>מוכנות האתר למחקר — ' + Math.round(RD.pct) + '%</h3>' +
+          '<div class="rd-tiers">' + ["must","important","nice"].filter(function(k){ return RD.tiers[k]; }).map(function(k){ var t = RD.tiers[k]; return '<span><b>' + tn[k] + ':</b> ' + t.ok + ' מיושמים · ' + t.part + ' חלקיים · ' + t.miss + ' חסרים</span>'; }).join("") + '</div>' +
+          '<p>לפי הסריקה מ־' + esc(new Date(RD.at).toLocaleString("he-IL", {day:"numeric", month:"numeric", hour:"2-digit", minute:"2-digit"})) + '. מיושם = בכותרת או ב־H1 של עמוד היעד, וגם בטקסט, בתיאור או בכותרות המשנה. ביטוי חובה שוקל פי 3, חשוב פי 2. אחרי תיקונים — לסרוק שוב.</p>' +
+          '<div class="rd-f" role="group" aria-label="סינון לפי מוכנות" style="margin-top:10px">' + [["all","הכל"],["miss","חסרים"],["part","חלקיים"],["ok","מיושמים"]].map(function(o){ return '<button type="button" data-rf="' + o[0] + '" aria-pressed="' + (KWV.rf === o[0]) + '">' + o[1] + '</button>'; }).join("") + '</div></div></div>';
+      }
+    }
     H += '<div class="kv-legend"' + (T.dir === "ltr" ? ' dir="ltr"' : '') + '>' + ["must","important","nice"].map(function(k){ return '<div><h4>' + L.tiers[k][0] + '</h4><p>' + esc((T.tiers && T.tiers[k]) || L.tiers[k][2]) + '</p></div>'; }).join("") + '</div>';
     var q = nz(ST.q), shown = 0;
     ["must","important","nice"].forEach(function(k){
       var all = rows.filter(function(r){ return r.tier === k; });
-      var items = all.filter(function(r){ return (!q || nz(r.p + " " + r.why + " " + r.page).indexOf(q) >= 0) && (ST.intent === "all" || r.i === ST.intent); });
+      var items = all.filter(function(r){ return (!q || nz(r.p + " " + r.why + " " + r.page).indexOf(q) >= 0) && (ST.intent === "all" || r.i === ST.intent) && (!RD || !RD.map || KWV.rf === "all" || (RD.map[r.tier + ":" + r.p] || {}).s === KWV.rf); });
       if(!items.length) return;
       shown += items.length;
       H += '<section class="kv-tier" style="--accent:var(--' + k + ');--tint:var(--' + k + '-soft)"' + (T.dir === "ltr" ? ' dir="ltr"' : '') + '>' +
@@ -4355,12 +4431,13 @@ function w3dScanner(){
                 '<span class="kw-tagx intent">' + L.intents[r.i] + '</span>' +
                 '<span class="kw-tagx c-' + r.c + '">' + L.comp[r.c] + '</span>' +
                 (r.page ? '<span class="kw-tagx' + (isNew ? ' newpg' : '') + '" dir="auto">' + esc(r.page) + '</span>' : '') +
+                (RD && RD.map && RD.map[r.tier + ":" + r.p] ? '<span class="kw-tagx rd-' + RD.map[r.tier + ":" + r.p].s + '">' + RDN[RD.map[r.tier + ":" + r.p].s] + '</span>' : '') +
                 (r.src ? '<span class="kw-tagx kw-ver">' + (T.lang === "en" ? "Verified volume" : "נפח מאומת") + '</span>' : '') +
               '</span></span>' +
               '<span class="kw-vol"><b>' + kvN(r.v) + '</b><span>' + L.perMonth + '</span></span>' +
               '<span class="kw-caret" aria-hidden="true"></span>' +
             '</button>' +
-            '<div class="kw-why"><dl><dt>' + L.why + '</dt><dd>' + esc(r.why || "—") + '</dd><dt>' + L.target + '</dt><dd><strong dir="auto">' + esc(r.page || "—") + '</strong></dd></dl></div>' +
+            '<div class="kw-why"><dl><dt>' + L.why + '</dt><dd>' + esc(r.why || "—") + '</dd><dt>' + L.target + '</dt><dd><strong dir="auto">' + esc(r.page || "—") + '</strong></dd>' + (RD && RD.map && RD.map[r.tier + ":" + r.p] ? '<dt>מוכנות</dt><dd>' + esc(kwReadyText(RD.map[r.tier + ":" + r.p])) + '</dd>' : '') + '</dl></div>' +
             '<div class="kw-measure" aria-hidden="true"><i style="--w:' + Math.max(3, Math.round(100 * (r.v || 0) / maxV)) + '%"></i></div>' +
           '</div>';
         }).join("") + '</div></section>';
@@ -4394,6 +4471,9 @@ function w3dScanner(){
     };
     $("kv-print").onclick = function(){ window.print(); };
     $("kv-xhtml").onclick = kvExportHTML; $("kv-xcsv").onclick = kvExportCSV;
+    if($("kv-ready")) $("kv-ready").onclick = function(){ KWV.ready = !KWV.ready; KWV.rf = "all"; kvRender(); };
+    if($("rd-scan")) $("rd-scan").onclick = function(){ kvView("setup"); window.scrollTo(0, 0); };
+    Array.prototype.forEach.call(box.querySelectorAll("[data-rf]"), function(b){ b.onclick = function(){ KWV.rf = b.dataset.rf; kvRender(); }; });
     if($("kv-new")) $("kv-new").onclick = function(){
       if(!window.confirm("להתחיל מחקר חדש? המחקר הנוכחי יימחק מהדפדפן (אפשר להוריד אותו קודם כ־HTML או CSV).")) return;
       KWRES = null; KWRES_NEW = null; KWR_ST = null; KWR.url = ""; KWR.notes = ""; KWR.scan = true; KWV.open = {}; save(); kwrPaint(); kvTabCount(); kvRender(); kwrOpen();
