@@ -639,21 +639,19 @@ body.on-res .side .panel:has(#s-req){display:none}
 .brand{display:flex!important;align-items:center;gap:14px;text-decoration:none;line-height:1}
 .brand-t{font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:.03em;color:var(--ink);white-space:nowrap;transition:font-size .25s ease}
 body.compact .brand-t{font-size:25px}
-.burger{flex:none;align-self:center;width:42px;height:42px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px;background:none;border:1px solid transparent;border-radius:9px;cursor:pointer;padding:0;margin-inline-end:-6px}
-.burger span{display:block;width:24px;height:2.5px;border-radius:2px;background:var(--brand);transition:transform .25s ease,opacity .2s ease}
-.burger:hover{border-color:var(--line)} .burger:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
-.burger[aria-expanded="true"] span:nth-child(1){transform:translateY(7.5px) rotate(45deg)}
-.burger[aria-expanded="true"] span:nth-child(2){opacity:0}
-.burger[aria-expanded="true"] span:nth-child(3){transform:translateY(-7.5px) rotate(-45deg)}
-.nd-ovl{position:fixed;inset:0;z-index:118;background:rgba(0,0,0,.55)}
+.burger{flex:none;align-self:center;position:relative;width:48px;height:48px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--brand);cursor:pointer;display:flex;align-items:center;justify-content:center;margin-inline-end:-12px}
+.burger:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.bg-box{position:relative;width:24px;height:24px;display:block}
+.bg-ic{position:absolute;inset:0;display:flex;transition:opacity .25s ease,transform .3s cubic-bezier(.2,.8,.2,1)}
+.bg-lines{opacity:1;transform:none}
+.bg-x{opacity:0;transform:rotate(-90deg) scale(.6)}
+.burger[aria-expanded="true"] .bg-lines{opacity:0;transform:rotate(90deg) scale(.6)}
+.burger[aria-expanded="true"] .bg-x{opacity:1;transform:none}
+.nd-ovl{position:fixed;inset:var(--nd-top,78px) 0 0 0;z-index:58;background:rgba(0,0,0,.55)}
 .nd-ovl[hidden]{display:none}
-.nav-drawer{position:fixed;top:0;right:0;bottom:0;z-index:119;width:min(340px,86vw);background:var(--surface);border-left:1px solid var(--line);box-shadow:-18px 0 40px rgba(0,0,0,.5);transform:translateX(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;visibility:hidden}
+.nav-drawer{position:fixed;top:var(--nd-top,78px);right:0;bottom:0;z-index:59;width:min(340px,86vw);background:var(--surface);border-left:1px solid var(--line);box-shadow:-18px 0 40px rgba(0,0,0,.5);transform:translateX(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column;visibility:hidden}
 .nav-drawer.open{transform:none;visibility:visible}
-.nd-head{display:flex;align-items:center;justify-content:space-between;padding:22px 22px 18px;border-bottom:1px solid var(--line)}
-.nd-head b{white-space:nowrap;font-family:var(--display);font-size:24px;letter-spacing:.03em;color:var(--brand);font-weight:700}
-.nd-x{background:none;border:1px solid var(--line);color:var(--ink-soft);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:14px}
-.nd-x:hover{border-color:var(--brand);color:var(--brand)} .nd-x:focus-visible{outline:2px solid var(--brand)}
-.nd-list{display:flex;flex-direction:column;padding:12px}
+.nd-list{display:flex;flex-direction:column;padding:14px 12px}
 .nd-list button{display:flex;align-items:center;gap:10px;width:100%;text-align:right;font-family:var(--body);font-size:17px;font-weight:500;color:var(--ink-soft);background:none;border:0;border-inline-start:3px solid transparent;border-radius:0 8px 8px 0;padding:14px 16px;cursor:pointer}
 .nd-list button:hover{background:var(--card2);color:var(--ink)}
 .nd-list button[aria-current="page"]{color:var(--ink);font-weight:700;border-inline-start-color:var(--brand);background:var(--card2)}
@@ -664,7 +662,7 @@ body.compact .brand-t{font-size:25px}
 @media (max-width:900px){ .ab-tabs{display:none} }
 @media (max-width:760px){ .brand-t{font-size:22px} body.compact .brand-t{font-size:18px} .brand{gap:8px} }
 @media (max-width:420px){ .brand-t,body.compact .brand-t{font-size:17px} .brand img,body.compact .brand img{height:20px} .ab-in{gap:6px} }
-@media (prefers-reduced-motion:reduce){ .nav-drawer,.burger span{transition:none} }
+@media (prefers-reduced-motion:reduce){ .nav-drawer,.bg-ic{transition:none} }
 @media print{ .burger,.nav-drawer,.nd-ovl{display:none!important} }
 </style>
 </head>
@@ -674,7 +672,7 @@ body.compact .brand-t{font-size:25px}
 
 <div class="appbar" id="appbar">
 <div class="ab-in">
-  <button type="button" class="burger" id="burger" aria-label="תפריט" aria-expanded="false" aria-controls="nav-drawer"><span></span><span></span><span></span></button>
+  <button type="button" class="burger" id="burger" aria-label="תפריט" aria-expanded="false" aria-controls="nav-drawer"><span class="bg-box" aria-hidden="true"><span class="bg-ic bg-lines"><svg viewBox="0 0 500 500" width="24" height="24" fill="currentColor"><path d="M416.19,83.81c-8.35-8.34-21.87-8.34-30.22,0L83.81,385.97c-8.34,8.34-8.34,21.87,0,30.22,4.17,4.17,9.64,6.26,15.11,6.26s10.94-2.09,15.11-6.26L416.19,114.03c8.34-8.34,8.34-21.87,0-30.22Z"/><path d="M96.51,197.23l100.72-100.72c8.34-8.34,8.34-21.87,0-30.22s-21.87-8.34-30.22,0l-100.72,100.72c-8.34,8.34-8.34,21.87,0,30.22,4.17,4.17,9.64,6.26,15.11,6.26s10.94-2.09,15.11-6.26Z"/><path d="M433.71,302.77c-8.34-8.34-21.87-8.34-30.22,0l-100.72,100.72c-8.34,8.34-8.34,21.87,0,30.22,4.17,4.17,9.64,6.26,15.11,6.26s10.94-2.09,15.11-6.26l100.72-100.72c8.34-8.34,8.34-21.87,0-30.22Z"/></svg></span><span class="bg-ic bg-x"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12"/><path d="M18 6 6 18"/></svg></span></span></button>
   <nav class="ab-tabs" role="tablist" aria-label="תצוגות">
     <button type="button" role="tab" id="tab-check" aria-selected="true" aria-controls="view-check">הכנת הבדיקה</button>
     <button type="button" role="tab" id="tab-res" aria-selected="false" aria-controls="view-check">תוצאות הבדיקה <span class="vt-n vt-r" id="tab-res-n"></span></button>
@@ -912,7 +910,6 @@ body.compact .brand-t{font-size:25px}
 
 <div class="nd-ovl" id="nd-ovl" hidden></div>
 <aside class="nav-drawer" id="nav-drawer" aria-label="תפריט ניווט" aria-hidden="true">
-  <div class="nd-head"><b dir="ltr">WEBSITE CHECKER</b><button type="button" class="nd-x" id="nd-x" aria-label="סגירת התפריט">✕</button></div>
   <nav class="nd-list">
     <button type="button" data-nv="setup"><span>הכנת הבדיקה</span></button>
     <button type="button" data-nv="res"><span>תוצאות הבדיקה</span><i id="nd-res-n"></i></button>
@@ -4554,16 +4551,18 @@ function w3dScanner(){
       Array.prototype.forEach.call(dr.querySelectorAll("[data-nv]"), function(b){ if(b.dataset.nv === VIEW) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
       $("nd-res-n").textContent = $("tab-res-n").textContent; $("nd-kw-n").textContent = $("tab-kw-n").textContent;
     }
-    function open(){ last = document.activeElement; sync(); dr.classList.add("open"); dr.setAttribute("aria-hidden", "false"); ov.hidden = false; bt.setAttribute("aria-expanded", "true"); setTimeout(function(){ (dr.querySelector('[aria-current="page"]') || $("nd-x")).focus(); }, 60); }
-    function close(focusBack){ dr.classList.remove("open"); dr.setAttribute("aria-hidden", "true"); ov.hidden = true; bt.setAttribute("aria-expanded", "false"); if(focusBack !== false && last && last.focus) last.focus(); }
+    function top(){ document.documentElement.style.setProperty("--nd-top", Math.round($("appbar").getBoundingClientRect().bottom) + "px"); }
+    window.addEventListener("scroll", function(){ if(dr.classList.contains("open")) top(); }, {passive:true});
+    $("appbar").addEventListener("transitionend", function(){ if(dr.classList.contains("open")) top(); });
+    function open(){ last = document.activeElement; sync(); top(); dr.classList.add("open"); dr.setAttribute("aria-hidden", "false"); ov.hidden = false; bt.setAttribute("aria-expanded", "true"); bt.setAttribute("aria-label", "סגירת תפריט"); setTimeout(function(){ (dr.querySelector('[aria-current="page"]') || dr.querySelector("[data-nv]")).focus(); }, 60); }
+    function close(focusBack){ dr.classList.remove("open"); dr.setAttribute("aria-hidden", "true"); ov.hidden = true; bt.setAttribute("aria-expanded", "false"); bt.setAttribute("aria-label", "תפריט"); if(focusBack !== false && last && last.focus) last.focus(); }
     bt.addEventListener("click", function(){ if(dr.classList.contains("open")) close(); else open(); });
-    $("nd-x").addEventListener("click", function(){ close(); });
     ov.addEventListener("click", function(){ close(); });
     dr.addEventListener("click", function(e){ var b = e.target.closest("[data-nv]"); if(!b) return; close(false); kvView(b.dataset.nv); window.scrollTo(0, 0); bt.focus(); });
     document.addEventListener("keydown", function(e){
       if(!dr.classList.contains("open")) return;
       if(e.key === "Escape"){ close(); return; }
-      if(e.key === "Tab"){ var f = dr.querySelectorAll("button"), a = f[0], z = f[f.length - 1];
+      if(e.key === "Tab"){ var f = [bt].concat(Array.prototype.slice.call(dr.querySelectorAll("button"))), a = f[0], z = f[f.length - 1];
         if(e.shiftKey && document.activeElement === a){ e.preventDefault(); z.focus(); } else if(!e.shiftKey && document.activeElement === z){ e.preventDefault(); a.focus(); } }
     });
     /* the logo goes to the tool's home: the first view, top of the page */
