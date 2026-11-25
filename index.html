@@ -637,8 +637,8 @@ body.on-res .side .panel:has(#s-req){display:none}
 
 /* ======== brand title, hamburger, side drawer ======== */
 .brand{display:flex!important;align-items:center;gap:14px;text-decoration:none;line-height:1}
-.brand-t{font-family:var(--display);font-weight:700;font-size:34px;letter-spacing:.03em;color:var(--ink);white-space:nowrap;transition:font-size .25s ease}
-body.compact .brand-t{font-size:25px}
+.brand-t{font-family:var(--body);font-weight:600;font-size:24px;letter-spacing:.06em;color:var(--ink);white-space:nowrap;transition:font-size .25s ease}
+body.compact .brand-t{font-size:19px}
 .burger{flex:none;align-self:center;position:relative;width:48px;height:48px;padding:0;border:0;border-radius:8px;background:transparent;color:var(--brand);cursor:pointer;display:flex;align-items:center;justify-content:center;margin-inline-end:-12px}
 .burger:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .bg-box{position:relative;width:24px;height:24px;display:block}
@@ -660,8 +660,8 @@ body.compact .brand-t{font-size:25px}
 .nd-list i:empty{display:none}
 .nd-list [data-nv="res"] i{background:var(--work)}
 @media (max-width:900px){ .ab-tabs{display:none} }
-@media (max-width:760px){ .brand-t{font-size:22px} body.compact .brand-t{font-size:18px} .brand{gap:8px} }
-@media (max-width:420px){ .brand-t,body.compact .brand-t{font-size:17px} .brand img,body.compact .brand img{height:20px} .ab-in{gap:6px} }
+@media (max-width:760px){ .brand-t{font-size:17px} body.compact .brand-t{font-size:15px} .brand{gap:8px} }
+@media (max-width:420px){ .brand-t,body.compact .brand-t{font-size:14px;letter-spacing:.04em} .brand img,body.compact .brand img{height:20px} .ab-in{gap:6px} }
 @media (prefers-reduced-motion:reduce){ .nav-drawer,.bg-ic{transition:none} }
 @media print{ .burger,.nav-drawer,.nd-ovl{display:none!important} }
 </style>
