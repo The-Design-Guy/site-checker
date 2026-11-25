@@ -3557,7 +3557,7 @@ function w3dScanner(){
                      feat:s.req.feat || [], excluded:s.req.excluded || [], source:s.req.source || "", ignore:s.req.ignore || "", noidx:s.req.noidx || "", kw:s.req.kw || {must:"", should:"", nice:"", src:""}};
     if(s.p) Object.keys(P).forEach(function(k){ if(s.p[k] !== undefined) P[k] = s.p[k]; });
     P.cats = Object.assign({}, CATS0, P.cats || {});
-    SCAN = s.scan || null; MAN = s.man || {}; ACK = s.ack || {}; SEOP = s.seo || null; SEVO = s.sevo || {}; PSI = s.psi || null; MANF = s.mf || []; ASG = s.asg || {}; KWRES = s.kwr || null; KWRES_NEW = s.kwrNew || null;
+    SCAN = s.scan || null; MAN = s.man || {}; ACK = s.ack || {}; SEOP = s.seo || null; SEVO = s.sevo || {}; PSI = s.psi || null; MANF = s.mf || []; ASG = s.asg || {}; if("kwr" in s || "kwrNew" in s){ KWRES = s.kwr || null; KWRES_NEW = s.kwrNew || null; }
     if(KWRES_NEW && typeof KWR_BUSY !== "undefined" && !KWR_BUSY) KWR_ST = {pct:100, real:100, cap:100, stage:"write", lang:"he", i:0, n:1, t0:Date.now(), state:"done", ws:0};
     if(typeof kvTabCount === "function") kvTabCount();
     return true;
@@ -3566,6 +3566,7 @@ function w3dScanner(){
   function save(){
     clearTimeout(tm);
     tm = setTimeout(function(){
+      try{ localStorage.setItem(KWSTORE, JSON.stringify({v:1, kwr:KWRES, kwrNew:KWRES_NEW, cfg:KWR})); }catch(e){}
       try{ localStorage.setItem(STORE, JSON.stringify(snapshot())); $("store").textContent = "נשמר בדפדפן " + new Date().toLocaleTimeString("he-IL",{hour:"2-digit",minute:"2-digit"}); }
       catch(e){ $("store").textContent = "הדוח גדול לשמירה אוטומטית — שמור לקובץ"; }
     }, 400);
@@ -3780,7 +3781,15 @@ function w3dScanner(){
   }
 
   /* ---------- keyword research with AI: the setup window ---------- */
-  var KWR = {lang:"he", notes:"", web:true}, KWRES = null;
+  var KWR = {lang:"he", notes:"", web:true, url:"", scan:true}, KWRES = null;
+  var KWSTORE = STORE + "-kw";   /* research lives in its own key: a new site check does not wipe it */
+  function kwrHostOf(u){ try{ return new URL(/^https?:/i.test(u) ? u : "https://" + u).host.replace(/^www\./, ""); }catch(e){ return ""; } }
+  function kwrUrl(){ return (KWR.url || "").trim() || (SCAN && SCAN.start) || SITE.url || ""; }
+  function kwrScanFits(){ /* the scan belongs to the site being researched */
+    if(!SCAN || !SCAN.host) return false;
+    var h = kwrHostOf(kwrUrl()); return !h || h === String(SCAN.host).replace(/^www\./, "");
+  }
+  function kwrSrc(){ return KWR.scan !== false && kwrScanFits() ? kwrPages() : []; }
   /* list prices per million tokens (USD), checked Sep 2026; web search $10 per 1,000 */
   var KWR_PRICE = [[/haiku/i, 1, 5], [/opus/i, 4, 20], [/sonnet/i, 2, 10]];
   var KWR_SEARCHES = 6;      /* searches per language, the cap we give the model */
@@ -3805,7 +3814,7 @@ function w3dScanner(){
     var m = (aiCfg().model || "claude-sonnet-5-5"), pr = null;
     KWR_PRICE.forEach(function(x){ if(!pr && x[0].test(m)) pr = x; });
     var langs = KWR.lang === "both" ? 2 : 1;
-    var site = kwrDigest(kwrPages()).length / 2.5;               /* Hebrew runs ~2.5 characters per token */
+    var site = kwrDigest(kwrSrc()).length / 2.5;               /* Hebrew runs ~2.5 characters per token */
     var inTok = langs * (4000 + site + (KWR.web ? KWR_SEARCHES * 7000 : 0));
     var outTok = langs * KWR_OUT;
     var searches = KWR.web ? langs * KWR_SEARCHES : 0;
@@ -3815,10 +3824,13 @@ function w3dScanner(){
   }
   function kwrMoney(x){ return "$" + (x < 0.1 ? x.toFixed(2) : x.toFixed(2)); }
   function kwrOpen(){
-    var pg = kwrPages(), url = SITE.url || ($("u-url") && $("u-url").value) || "";
-    var src = pg.length
+    if(!KWR.url) KWR.url = kwrUrl();
+    var pg = kwrSrc(), url = kwrUrl(), all = kwrPages(), fits = kwrScanFits();
+    var scanBox = all.length ? '<label class="chk" style="margin:10px 0 0"><input type="checkbox" id="kwr-scan"' + (KWR.scan !== false && fits ? " checked" : "") + (fits ? "" : " disabled") + '> להתבסס על הסריקה (' + all.length + ' עמודים מ־<span dir="ltr">' + esc(SCAN.host) + '</span>)' + (fits ? '' : ' — זו סריקה של אתר אחר') + '</label>' : '';
+    var src = '<h4>האתר</h4><input type="url" id="kwr-url" dir="ltr" placeholder="https://example.co.il" value="' + esc(url) + '" style="width:100%">' + scanBox +
+      '<p class="hint" style="margin:8px 0 0">אפשר להריץ מחקר בלי בדיקה. אם האתר עוד לא קיים — השאר ריק וכתוב בהערות מה העסק עושה, למי ואיפה.</p>' + (pg.length
       ? '<div class="kwr-src">המחקר יתבסס על <b>' + pg.length + ' עמודים</b> שנסרקו מ־<span dir="ltr">' + esc(SCAN.host || "") + '</span>: כותרות, תיאורים, H1–H3 ותחילת הטקסט בכל עמוד. עמודי היעד יוצעו מתוך העמודים האלה.</div>'
-      : '<div class="kwr-src warn"><b>עוד לא הורצה סריקה.</b> בלי סריקה ה־AI יקרא את האתר לבד מהרשת — רק את מה שגלוי לציבור, ולא אתר סטייג׳ינג מאחורי סיסמה' + (url ? ' (<span dir="ltr">' + esc(url) + '</span>)' : '') + '. מומלץ לסרוק קודם.</div>';
+        : '<div class="kwr-src warn"><b>בלי סריקה.</b> ה־AI ילמד על האתר מהרשת — רק מה שגלוי לציבור, לא אתר סטייג׳ינג מאחורי סיסמה. בשביל עמודי יעד מדויקים מומלץ לסרוק קודם.</div>');
     var c = aiCfg();
     var H = src +
       '<h4>שפת המחקר</h4><div class="kwr-seg" role="radiogroup" aria-label="שפת המחקר">' +
@@ -3829,20 +3841,23 @@ function w3dScanner(){
       '<div class="kwr-cost" id="kwr-cost"></div>' +
       (aiReady() ? '' : SRV.on ? '<p class="hint">בשרת לא מוגדר ANTHROPIC_API_KEY.</p>' + '' : '<p class="hint">צריך מפתח API של Anthropic. הוא נשמר רק בדפדפן הזה.</p>');
     var acts = [];
-    if(!pg.length) acts.push({label:"לסריקה קודם", fn:function(){ ovlClose(); var st = document.querySelectorAll(".step")[2]; if(st) st.scrollIntoView({behavior:"smooth", block:"start"}); }});
-    acts.push(aiReady() ? {label:"הרצת המחקר", primary:!!pg.length, fn:function(){ kwrStart(); }} : {label:"הגדרת מפתח API", primary:true, fn:aiSettings});
+    acts.push(aiReady() ? {label:"הרצת המחקר", primary:true, fn:function(){
+      upd(); if(!kwrUrl() && !KWR.notes.trim()){ say("צריך כתובת אתר, או תיאור של העסק בהערות"); $("kwr-url").focus(); return; }
+      kwrStart(); }} : {label:"הגדרת מפתח API", primary:true, fn:aiSettings});
     acts.push({label:"ביטול", fn:ovlClose});
     ovl("מחקר מילים עם AI", H, acts);
     var upd = function(){
       var r = document.querySelector('input[name="kwr-lang"]:checked'); if(r) KWR.lang = r.value;
-      KWR.web = $("kwr-web").checked; KWR.notes = $("kwr-notes").value;
+      KWR.web = $("kwr-web").checked; KWR.notes = $("kwr-notes").value; KWR.url = $("kwr-url").value.trim();
+      var sc = $("kwr-scan"); if(sc){ var fit = kwrScanFits(); sc.disabled = !fit; if(!fit) sc.checked = false; else if(sc.dataset.touched !== "1") sc.checked = KWR.scan !== false; if(fit) KWR.scan = sc.checked; }
       var k = kwrCost();
       $("kwr-cost").innerHTML = k.known
         ? '<span>הערכת עלות לפי ' + esc(k.model) + (k.searches ? ', כולל ' + k.searches + ' חיפושים' : '') + '. החיוב בפועל בחשבון ה־API שלך.</span><b>' + kwrMoney(k.lo) + '–' + kwrMoney(k.hi) + '</b>'
         : '<span>אין לי מחירון למודל „' + esc(aiCfg().model || "") + '”, אז אין הערכת עלות. אפשר להחליף מודל בהגדרות ה־AI.</span>';
     };
     Array.prototype.forEach.call(document.querySelectorAll('input[name="kwr-lang"]'), function(i){ i.addEventListener("change", upd); });
-    $("kwr-web").addEventListener("change", upd); $("kwr-notes").addEventListener("input", upd);
+    $("kwr-web").addEventListener("change", upd); $("kwr-notes").addEventListener("input", upd); $("kwr-url").addEventListener("input", upd);
+    if($("kwr-scan")) $("kwr-scan").addEventListener("change", function(){ this.dataset.touched = "1"; KWR.scan = this.checked; upd(); });
     upd();
   }
   /* ---------- progress: ring in the window + floating chip ---------- */
@@ -4026,9 +4041,9 @@ function w3dScanner(){
             issues:(o.issues || []).filter(Boolean).map(String), verify:(o.verify || []).filter(Boolean).map(String)};
   }
   function kwrUser(lang){
-    var pg = kwrPages(), url = (SCAN && SCAN.start) || SITE.url || ($("u-url") && $("u-url").value) || "";
+    var pg = kwrSrc(), url = kwrUrl();
     var parts = [];
-    parts.push("האתר: " + (url || "(לא ידוע)") + (SITE.prod ? " · הדומיין הסופי: " + SITE.prod : ""));
+    parts.push("האתר: " + (url || "(עוד לא קיים — לבנות לפי ההערות)") + (SITE.prod && kwrScanFits() ? " · הדומיין הסופי: " + SITE.prod : ""));
     if(REQ.name) parts.push("שם הפרויקט: " + REQ.name);
     if(REQ.feat && REQ.feat.length) parts.push("מה האתר כולל (לפי בעל האתר): " + REQ.feat.join(", "));
     if(REQ.excluded && REQ.excluded.length) parts.push("לא כלול: " + REQ.excluded.join(", "));
@@ -4061,8 +4076,7 @@ function w3dScanner(){
     var prev = fix ? KWRES_NEW : null;
     var res = {tabs:[], rows:[], issues:[], verify:[], insight:[], use:{in:0, out:0, cr:0, cw:0, ws:0}, fixes:(prev && prev.fixes ? prev.fixes.slice() : [])};
     if(fix) res.fixes.push(fix);
-    var host = (SCAN && SCAN.host) || "";
-    try{ if(!host) host = new URL(SITE.url || $("u-url").value).host; }catch(e){}
+    var host = kwrHostOf(kwrUrl()) || (kwrScanFits() && SCAN.host) || "";
     KWR_BUSY = true;
     KWR_ST = {pct:0, real:0, cap:3, stage: fix ? "fix" : "start", lang:langs[0], i:0, n:langs.length, t0:Date.now(), state:"run", ws:0};
     clearInterval(KWR_TIMER); KWR_TIMER = setInterval(kwrTick, 160);
@@ -4114,7 +4128,7 @@ function w3dScanner(){
       var dedup = function(a){ var m = {}; return a.filter(function(x){ var k = nz(x); if(m[k]) return false; m[k] = 1; return true; }); };
       res.issues = dedup(res.issues); res.verify = dedup(res.verify);
       res.at = Date.now(); res.model = aiCfg().model || "claude-sonnet-5-5"; res.host = host; res.web = KWR.web;
-      res.basedOn = kwrPages().length; res.usd = kwrUsd(res.use);
+      res.basedOn = kwrSrc().length; res.url = kwrUrl(); res.usd = kwrUsd(res.use);
       if(prev){ ["in","out","cr","cw","ws"].forEach(function(k){ res.use[k] += prev.use[k] || 0; }); res.usd = kwrUsd(res.use); }
       KWRES_NEW = res; save();
       KWR_ST.state = "done"; KWR_ST.pct = KWR_ST.real = 100;
@@ -4279,7 +4293,7 @@ function w3dScanner(){
     if(!R || !R.rows || !R.rows.length){
       var live = KWR_ST && KWR_ST.state === "run";
       box.innerHTML = '<div class="kv-empty"><h2>מחקר מילים</h2><p>' +
-        (live ? 'המחקר רץ עכשיו — ' + KWR_ST.pct.toFixed(1) + '%. כשהוא יסתיים, הוא יופיע כאן.' : 'עוד אין מחקר לאתר הזה. ה־AI יקרא את העמודים שנסרקו, יחפש ברשת ויבנה 30 ביטויים בשלוש שכבות — עם הסבר לכל אחד.') +
+        (live ? 'המחקר רץ עכשיו — ' + KWR_ST.pct.toFixed(1) + '%. כשהוא יסתיים, הוא יופיע כאן.' : 'עוד אין מחקר. אפשר להריץ אותו לבד, בלי בדיקה — רק כתובת, או תיאור של העסק אם האתר עוד לא קיים. ה־AI יחפש ברשת, יקרא את העמודים אם יש סריקה, ויבנה 30 ביטויים בשלוש שכבות עם הסבר לכל אחד.') +
         '</p><div class="row"><button class="ghost primary" id="kv-run">' + (live ? 'לצפייה בהתקדמות' : 'מחקר מילים עם AI') + '</button></div></div>';
       $("kv-run").onclick = function(){ if(KWR_ST) kwrShowLive(); else kwrOpen(); };
       return;
@@ -4297,7 +4311,7 @@ function w3dScanner(){
                 R.web ? "כולל חיפוש ברשת" : "בלי חיפוש ברשת", R.model,
                 R.usd !== null && R.usd !== undefined ? "עלות ~" + kwrMoney(R.usd) : ""].filter(Boolean).join(" · ");
     if(X) meta = when.toLocaleDateString("he-IL");
-    var url = (SCAN && SCAN.start) || SITE.url || (R.host ? "https://" + R.host + "/" : "");
+    var url = R.url || (SCAN && SCAN.start) || SITE.url || (R.host ? "https://" + R.host + "/" : "");
     var H = (pending ? '<div class="kv-pending"><b>טיוטה — עוד לא אושרה</b><span>' + (KWRES ? 'המחקר המאושר הקודם יוחלף רק אחרי אישור.' : 'עד שתאשר, הביטויים לא נכנסים לבדיקה.') + '</span>' +
         '<div class="kd-acts"><button type="button" class="ghost primary" id="kvp-ok">אישור והטמעה</button><button type="button" class="ghost" id="kvp-fix">תיקון והרצה מחדש</button><button type="button" class="ghost danger" id="kvp-drop">מחיקה</button></div></div>' : '') +
       '<div class="kv-hero' + (X ? '' : ' in-app') + '">' +
@@ -4320,7 +4334,7 @@ function w3dScanner(){
       '<div class="kv-field"><input' + (X ? '' : ' id="kv-q"') + ' class="kv-qi" type="search" placeholder="חיפוש בתוך הביטויים…" aria-label="חיפוש בתוך הביטויים" value="' + esc(ST.q) + '"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></div>' +
       '<div class="kv-chips" role="group" aria-label="סינון לפי כוונה">' + ["all","commercial","brand","info","compare"].map(function(k){ return '<button type="button" class="kv-chip" data-intent="' + k + '" aria-pressed="' + (ST.intent === k) + '">' + KV_TXT.he.intents[k] + '</button>'; }).join("") + '</div>' +
       (X ? '<div class="kv-acts"><button type="button" class="ghost kv-allb">פתיחת הכל</button><button type="button" class="ghost kv-csvb">ייצוא CSV</button><button type="button" class="ghost kv-printb">הדפסה / PDF</button></div>'
-         : '<div class="kv-acts"><button type="button" class="ghost" id="kv-all">' + (Object.keys(ST.open).length ? "סגירת הכל" : "פתיחת הכל") + '</button><button type="button" class="ghost" id="kv-xhtml" title="קובץ HTML עצמאי בעיצוב הזה — לשליחה ללקוח">ייצוא HTML</button><button type="button" class="ghost" id="kv-xcsv">ייצוא CSV</button><button type="button" class="ghost" id="kv-print">הדפסה / PDF</button></div>') +
+         : '<div class="kv-acts"><button type="button" class="ghost" id="kv-all">' + (Object.keys(ST.open).length ? "סגירת הכל" : "פתיחת הכל") + '</button><button type="button" class="ghost" id="kv-xhtml" title="קובץ HTML עצמאי בעיצוב הזה — לשליחה ללקוח">ייצוא HTML</button><button type="button" class="ghost" id="kv-xcsv">ייצוא CSV</button><button type="button" class="ghost" id="kv-print">הדפסה / PDF</button><button type="button" class="ghost" id="kv-new">מחקר חדש</button></div>') +
       '</div></div>';
     H += '<div class="kv-legend"' + (T.dir === "ltr" ? ' dir="ltr"' : '') + '>' + ["must","important","nice"].map(function(k){ return '<div><h4>' + L.tiers[k][0] + '</h4><p>' + esc((T.tiers && T.tiers[k]) || L.tiers[k][2]) + '</p></div>'; }).join("") + '</div>';
     var q = nz(ST.q), shown = 0;
@@ -4380,6 +4394,10 @@ function w3dScanner(){
     };
     $("kv-print").onclick = function(){ window.print(); };
     $("kv-xhtml").onclick = kvExportHTML; $("kv-xcsv").onclick = kvExportCSV;
+    if($("kv-new")) $("kv-new").onclick = function(){
+      if(!window.confirm("להתחיל מחקר חדש? המחקר הנוכחי יימחק מהדפדפן (אפשר להוריד אותו קודם כ־HTML או CSV).")) return;
+      KWRES = null; KWRES_NEW = null; KWR_ST = null; KWR.url = ""; KWR.notes = ""; KWR.scan = true; KWV.open = {}; save(); kwrPaint(); kvTabCount(); kvRender(); kwrOpen();
+    };
 
     if(pending){
       $("kvp-ok").onclick = kwrApprove;
@@ -4420,7 +4438,7 @@ function w3dScanner(){
     var bytes = Uint8Array.from(atob(KW_TPL), function(c){ return c.charCodeAt(0); });
     var t = new TextDecoder("utf-8").decode(bytes);
     var J = function(o){ return JSON.stringify(o, null, 2).replace(/</g, "\\u003c"); };
-    var url = (SCAN && SCAN.start) || SITE.url || (R.host ? "https://" + R.host + "/" : "");
+    var url = R.url || (SCAN && SCAN.start) || SITE.url || (R.host ? "https://" + R.host + "/" : "");
     var slug = String(R.host || R.client || "site").replace(/^www\./, "").replace(/\.[a-z.]+$/i, "").replace(/[^\w֐-׿-]+/g, "-").toLowerCase() || "site";
     var CONFIG = {client:R.client || R.host || "", lede:R.lede || "", url:url, label:String(R.host || url).replace(/^https?:\/\//, "").replace(/\/$/, ""), slug:slug,
       tabs:R.tabs.map(function(tb){ return {id:tb.id, label:tb.lang === "en" ? "The English site" : "האתר בעברית", dir:tb.dir || (tb.lang === "en" ? "ltr" : "rtl"), lang:tb.lang === "en" ? "en" : "he", note:tb.note || ""}; })};
@@ -4440,7 +4458,7 @@ function w3dScanner(){
     var logo = (document.querySelector(".brand img") || {}).src || "";
     t = t.split("__LOGO__").join(logo);
     if(BRAND !== "web3d"){
-      t = t.replace('<a class="brand" href="https://web3d.co.il" target="_blank" rel="noopener"><img src="' + logo + '" alt="Web3D"></a>', '<a class="brand"><img src="' + logo + '" alt="Design Guy"></a>');
+      t = t.replace('<a class="brand" href="https://web3d.co.il" target="_blank" rel="noopener"><img src="' + logo + '" alt="Web3D"></a>', '<a class="brand" href="https://the-design-guy.com" target="_blank" rel="noopener"><img src="' + logo + '" alt="Design Guy"></a>');
       t = t.replace("</style>", "</style><style>" + KW_DG_CSS + "</style>");
     }
     return t;
@@ -4787,10 +4805,9 @@ function w3dScanner(){
     r.readAsText(f);
   });
   $("new").addEventListener("click", function(){
-    if((SCAN || KWRES || KWRES_NEW) && !window.confirm("להתחיל בדיקה חדשה? הדוח" + (KWRES || KWRES_NEW ? " ומחקר המילים" : "") + " יימחקו מהדפדפן (שמור לקובץ אם צריך).")) return;
+    if(SCAN && !window.confirm("להתחיל בדיקה חדשה? הדוח יימחק מהדפדפן (שמור לקובץ אם צריך). מחקר המילים נשאר — יש לו כפתור „מחקר חדש” משלו.")) return;
     SITE = {url:"", prod:""}; REQ = {name:"", a11y:"none", inner:null, lang:false, feat:[], excluded:[], source:"", ignore:"", noidx:"", kw:{must:"", should:"", nice:"", src:""}}; ACK = {}; SEOP = null; SEVO = {}; PSI = null; MANF = []; ASG = {}; RTAB = "all"; LVL = "all";
     SCAN = null; MAN = {}; OPEN = {};
-    KWRES = null; if(!KWR_BUSY){ KWRES_NEW = null; KWR_ST = null; } KWV.open = {}; kwrPaint(); kvTabCount(); if(!$("view-kw").hidden) kvRender();
     fillForm(); scanState(); render(); save(); kvView("setup");
   });
 
@@ -4839,6 +4856,8 @@ function w3dScanner(){
 
   /* boot */
   try{ var raw = localStorage.getItem(STORE); if(raw) apply(JSON.parse(raw)); }catch(e){}
+  try{ var kraw = localStorage.getItem(KWSTORE); if(kraw){ var K = JSON.parse(kraw); KWRES = K.kwr || null; KWRES_NEW = K.kwrNew || null; if(K.cfg) Object.keys(KWR).forEach(function(k){ if(K.cfg[k] !== undefined) KWR[k] = K.cfg[k]; });
+    KWR_ST = KWRES_NEW && !KWR_BUSY ? {pct:100, real:100, cap:100, stage:"write", lang:"he", i:0, n:1, t0:Date.now(), state:"done", ws:0} : null; kvTabCount(); } }catch(e){}
   $("p-psi").value = psiKey();
   $("p-psi").addEventListener("change", function(){ try{ localStorage.setItem("dg-psi-key", $("p-psi").value.trim()); }catch(e){} say($("p-psi").value.trim() ? "המפתח נשמר בדפדפן הזה" : "המפתח נמחק"); });
   fillForm(); scanState(); render(); aiHint(); kwrPaint(); kvTabCount(); kvView(SCAN ? "res" : "setup");
