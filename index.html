@@ -693,6 +693,17 @@ body.compact .brand-t{font-size:19px}
 .lock-box button{margin-top:4px;height:42px}
 /* key fields are not used when the keys live on the server */
 body.srv .psi-fld{display:none}
+
+/* version switch inside the drawer */
+.nd-ver{margin:6px 12px 0;padding:16px 4px 0;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.nd-ver-t{font-size:11px;font-weight:600;letter-spacing:.14em;color:var(--steel);padding:0 12px 4px}
+.nd-v{display:flex;flex-direction:column;gap:1px;padding:11px 14px;border:1px solid var(--line);border-radius:9px;text-decoration:none;color:var(--ink-soft);cursor:pointer}
+.nd-v b{font-size:15px;font-weight:600;color:var(--ink);direction:ltr;text-align:right}
+.nd-v small{font-size:12px;color:var(--steel)}
+.nd-v:hover{border-color:var(--steel)}
+.nd-v:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.nd-v[aria-current="true"]{border-color:var(--brand);background:rgba(var(--brand-rgb),.08)}
+.nd-v[aria-current="true"] b::after{content:" ✓";color:var(--brand)}
 </style>
 </head>
 <body>
@@ -955,6 +966,11 @@ body.srv .psi-fld{display:none}
     <button type="button" data-nv="res"><span>תוצאות הבדיקה</span><i id="nd-res-n"></i></button>
     <button type="button" data-nv="kw"><span>מחקר מילים</span><i id="nd-kw-n"></i></button>
   </nav>
+  <div class="nd-ver" role="group" aria-labelledby="nd-ver-t">
+    <span class="nd-ver-t" id="nd-ver-t">גרסה</span>
+    <a class="nd-v" id="nd-v-dg" data-b="dg"><b>Design Guy</b><small>שירות ללקוחות</small></a>
+    <a class="nd-v" id="nd-v-w3d" data-b="web3d"><b>Web3D</b><small>דוחות QA למתכנת</small></a>
+  </div>
 </aside>
 <button class="kwr-chip" id="kwr-chip" type="button" hidden aria-live="polite"></button>
 <div class="ai-ovl" id="ovl" hidden>
@@ -4654,9 +4670,16 @@ function w3dScanner(){
     document.addEventListener("keydown", function(e){
       if(!dr.classList.contains("open")) return;
       if(e.key === "Escape"){ close(); return; }
-      if(e.key === "Tab"){ var f = [bt].concat(Array.prototype.slice.call(dr.querySelectorAll("button"))), a = f[0], z = f[f.length - 1];
+      if(e.key === "Tab"){ var f = [bt].concat(Array.prototype.slice.call(dr.querySelectorAll("button, a[href]"))), a = f[0], z = f[f.length - 1];
         if(e.shiftKey && document.activeElement === a){ e.preventDefault(); z.focus(); } else if(!e.shiftKey && document.activeElement === z){ e.preventDefault(); a.focus(); } }
     });
+    /* version switch: "/" and "/web3d" on the server; ?brand=web3d when the file is opened directly */
+    (function(){
+      var direct = location.protocol === "file:" || /\.html?$/i.test(location.pathname);
+      var base = location.pathname.replace(/\/web3d\/?$/i, "/");
+      var to = function(b){ if(direct){ var q = new URLSearchParams(location.search); if(b === "web3d") q.set("brand", "web3d"); else q.delete("brand"); var qs = q.toString(); return location.pathname + (qs ? "?" + qs : ""); } return b === "web3d" ? base.replace(/\/?$/, "/") + "web3d" : base; };
+      [["nd-v-dg","dg"],["nd-v-w3d","web3d"]].forEach(function(x){ var a = $(x[0]); a.href = to(x[1]); if(BRAND === x[1]) a.setAttribute("aria-current", "true"); });
+    })();
     /* the logo goes to the tool's home: the first view, top of the page */
     $("brand-home").addEventListener("click", function(e){ e.preventDefault(); close(false); kvView("setup"); window.scrollTo({top:0, behavior:"smooth"}); });
   })();
