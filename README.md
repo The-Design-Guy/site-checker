@@ -2,6 +2,13 @@
 
 Pre-launch website checker + keyword research. One page (`index.html`) plus three small server functions in `api/` that run on Vercel.
 
+## Two versions, one deployment
+
+- `/` — Design Guy (dark, ATLAS colours)
+- `/web3d` — Web3D (light, Web3D red and logo). The developer report, the keyword report and the popups the bookmarklet shows on the checked site all follow the brand.
+
+Both share the same keys and password. Each keeps its own saved work in the browser, so a check saved in one doesn't show up in the other. For local testing, `index.html?brand=web3d` opens the Web3D version.
+
 ## Vercel setup
 
 Settings → Environment Variables (Production, Preview, Development), then **Redeploy**:

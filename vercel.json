@@ -1,4 +1,8 @@
 {
+  "rewrites": [
+    { "source": "/web3d", "destination": "/index.html" },
+    { "source": "/web3d/", "destination": "/index.html" }
+  ],
   "functions": {
     "api/claude.js": { "maxDuration": 300 },
     "api/pagespeed.js": { "maxDuration": 120 }
