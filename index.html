@@ -704,6 +704,17 @@ body.srv .psi-fld{display:none}
 .nd-v:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
 .nd-v[aria-current="true"]{border-color:var(--brand);background:rgba(var(--brand-rgb),.08)}
 .nd-v[aria-current="true"] b::after{content:" ✓";color:var(--brand)}
+
+/* ======== assignee ======== */
+.tag.asg{cursor:pointer;font-family:inherit;border:1px dashed var(--line);background:none;color:var(--steel);display:inline-flex;align-items:center;gap:4px}
+.tag.asg.on{border-style:solid;border-color:rgba(var(--brand-rgb),.5);color:var(--ink);background:rgba(var(--brand-rgb),.08)}
+.tag.asg i{font-style:normal;font-size:.8em;opacity:.7}
+.tag.asg:hover{border-color:var(--steel);color:var(--ink)} .tag.asg:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.asgpop button::before{display:none}
+.asgpop .asg-new{color:var(--brand)} .asgpop .asg-clr{color:var(--steel)}
+.asg-empty{font-size:12px;color:var(--steel);padding:6px 10px}
+#team-ta{width:100%;direction:rtl}
+@media print{ .tag.asg i{display:none} .tag.asg:not(.on){display:none} }
 </style>
 </head>
 <body>
@@ -779,6 +790,7 @@ body.srv .psi-fld{display:none}
         <div class="fld"><label for="p-email">מייל לשליחת הבדיקה</label><input id="p-email" type="email" dir="ltr" value="test@example.com"></div>
         <div class="fld sub"><label for="p-words">מילים נוספות שנחשבות טקסט דמה (שורה לכל ביטוי)</label><textarea id="p-words" rows="3" placeholder="למשל: שם הלקוח הקודם&#10;050-0000000"></textarea></div>
         <div class="fld sub" style="margin-bottom:0">
+          <button class="ghost blk" id="team-cfg">הצוות — מי מתקן</button>
           <button class="ghost blk" id="ai-cfg">הגדרות AI</button>
           <p class="hint" id="ai-hint"></p>
         </div>
@@ -1971,7 +1983,7 @@ function w3dScanner(){
   var P = {cats:Object.assign({}, CATS0), crawl:30, kb:300, tmin:20, tmax:65, dmin:70, dmax:160, load:4, mb:4, vmb:10, ana:true, words:"", mpages:6, margin:16, tablet:false, forms:true, real:false, email:"test@example.com"};
   var REQ = {name:"", a11y:"none", inner:null, lang:false, feat:[], excluded:[], source:"", ignore:"", noidx:"", kw:{must:"", should:"", nice:"", src:""}};
   var SITE = {url:"", prod:""};
-  var SCAN = null, RES = [], MAN = {}, FILTER = "issues", RTAB = "all", LVL = "all", SEVO = {}, PSI = null, PSI_BUSY = false, MANF = [], XF = null, OPEN = {}, U = {}, ACK = {}, ACKK = [], IGNINFO = [];
+  var SCAN = null, RES = [], MAN = {}, FILTER = "issues", RTAB = "all", LVL = "all", SEVO = {}, PSI = null, PSI_BUSY = false, MANF = [], XF = null, ASG = {}, OPEN = {}, U = {}, ACK = {}, ACKK = [], IGNINFO = [];
 
   function say(t){ $("said").textContent = t; setTimeout(function(){ $("said").textContent = ""; }, 2800); }
 
@@ -3334,6 +3346,38 @@ function w3dScanner(){
     });
   }
 
+  /* ---------- who fixes what ---------- */
+  var TEAMKEY = (document.documentElement.getAttribute("data-brand") === "web3d" ? "w3d" : "dg") + "-team";
+  function team(){ try{ return JSON.parse(localStorage.getItem(TEAMKEY) || "[]").filter(Boolean); }catch(e){ return []; } }
+  function teamSave(a){ try{ localStorage.setItem(TEAMKEY, JSON.stringify(a)); }catch(e){} }
+  function asgChip(r){
+    var who = ASG[r.id] || "", T = team();
+    if(who && T.indexOf(who) < 0) T = T.concat([who]);
+    return '<span class="sevw"><button type="button" class="tag asg' + (who ? ' on' : '') + '" data-asgp="' + r.id + '" aria-haspopup="true" aria-expanded="false" title="מי מתקן">' +
+        '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg> ' +
+        (who ? esc(who) : 'אחראי') + ' <i aria-hidden="true">▾</i></button>' +
+      '<span class="sevpop asgpop" role="menu" hidden>' +
+        T.map(function(n){ return '<button type="button" role="menuitemradio" aria-checked="' + (who === n) + '" data-asgset="' + r.id + '" data-n="' + esc(n) + '">' + esc(n) + '</button>'; }).join("") +
+        (who ? '<button type="button" role="menuitem" class="asg-clr" data-asgset="' + r.id + '" data-n="">ללא אחראי</button>' : '') +
+        '<button type="button" role="menuitem" class="asg-new" data-asgnew="' + r.id + '">+ עובד חדש…</button>' +
+        (T.length ? '' : '<span class="asg-empty">עוד אין עובדים ברשימה</span>') +
+      '</span></span>';
+  }
+  function asgSet(id, name){
+    if(name) ASG[id] = name; else delete ASG[id];
+    if(name && team().indexOf(name) < 0) teamSave(team().concat([name]));
+    var y = scrollY; render(); save(); scrollTo(0, y);
+    say(name ? "שויך ל" + name : "השיוך הוסר");
+  }
+  function teamEdit(after){
+    ovl("הצוות", '<p>שם לכל שורה. הרשימה נשמרת בדפדפן הזה, ' + (BRAND === "web3d" ? 'לגרסת Web3D' : 'לגרסה שלך') + ', ומשמשת בכל הבדיקות.</p><textarea id="team-ta" rows="7" placeholder="למשל:&#10;אבי — פרונט&#10;מאיה — תוכן">' + esc(team().join("\n")) + '</textarea>',
+      [{label:"שמירה", primary:true, fn:function(){
+        var a = $("team-ta").value.split("\n").map(function(x){ return x.trim(); }).filter(Boolean), seen = {};
+        a = a.filter(function(x){ var k = x.toLowerCase(); if(seen[k]) return false; seen[k] = 1; return true; });
+        teamSave(a); ovlClose(); render(); say("הצוות נשמר"); if(after) after();
+      }}, {label:"ביטול", fn:ovlClose}]);
+    setTimeout(function(){ $("team-ta").focus(); }, 30);
+  }
   function cardHTML(r){
     var st = STAT[r.status], open = OPEN[r.id] !== undefined ? OPEN[r.id] : (r.status === "fail");
     var H = '<article class="ck ' + r.status + '" id="ck-' + r.id + '">' +
@@ -3341,6 +3385,7 @@ function w3dScanner(){
       '<div class="ck-body"><div class="ck-t">' + esc(r.title) + '</div><div class="ck-s">' + esc(r.summary) + '</div>' +
       '<div class="ck-meta"><span class="sevw"><button type="button" class="tag sev-' + r.sev + ' sevb" data-sevp="' + r.id + '" aria-haspopup="true" aria-expanded="false" title="שינוי רמת הדחיפות">' + SEVN[r.sev] + ' <i aria-hidden="true">▾</i></button>' +
         '<span class="sevpop" role="menu" hidden>' + ["critical","major","minor"].map(function(k){ return '<button type="button" role="menuitemradio" aria-checked="' + (r.sev === k) + '" class="sev-' + k + '" data-sevset="' + r.id + '|' + k + '">' + SEVN[k] + (r.sevOver && r.sev0 === k ? ' <small>(המקורי)</small>' : '') + '</button>'; }).join("") + '</span></span>' +
+        (r.status !== "pass" ? asgChip(r) : '') +
         (r.sevOver ? '<span class="tag so">שונה ידנית · היה: ' + SEVN[r.sev0] + ' <button type="button" class="sor" data-sevreset="' + r.id + '" title="להחזיר לרמה המקורית" aria-label="להחזיר לרמה המקורית">↺</button></span>' : '') + (r.ackCard ? '<span class="tag g">' + ACKN[r.ackCard] + '</span>' : r.ackAll ? '<span class="tag g">טופל</span>' : r.reopen ? '<span class="tag r">חזר אחרי תיקון</span>' : '') + (r.items.length && r.status !== "pass" ? '<span class="tag">' + r.items.length + ' ממצאים</span>' : '') + '</div></div>' +
       '<span class="cd ' + st[0] + '">' + st[1] + '</span></div>';
     if(r.status !== "pass" || r.ackAll || r.extra){
@@ -3495,7 +3540,7 @@ function w3dScanner(){
     $("p-ana").checked = !!P.ana; $("p-words").value = P.words || "";
     $("p-mp").value = P.mpages; $("p-mg").value = P.margin; $("p-forms").checked = !!P.forms; $("p-tablet").checked = !!P.tablet; $("p-real").checked = !!P.real; $("p-email").value = P.email || "";
   }
-  function snapshot(){ return {v:1, site:SITE, req:REQ, p:P, scan:SCAN, man:MAN, ack:ACK, seo:SEOP, kwr:KWRES, kwrNew:KWRES_NEW, sevo:SEVO, psi:PSI, mf:MANF}; }
+  function snapshot(){ return {v:1, site:SITE, req:REQ, p:P, scan:SCAN, man:MAN, ack:ACK, seo:SEOP, kwr:KWRES, kwrNew:KWRES_NEW, sevo:SEVO, psi:PSI, mf:MANF, asg:ASG}; }
   function apply(s){
     if(!s || s.v !== 1) return false;
     if(s.site) SITE = {url:s.site.url || "", prod:s.site.prod || ""};
@@ -3503,7 +3548,7 @@ function w3dScanner(){
                      feat:s.req.feat || [], excluded:s.req.excluded || [], source:s.req.source || "", ignore:s.req.ignore || "", noidx:s.req.noidx || "", kw:s.req.kw || {must:"", should:"", nice:"", src:""}};
     if(s.p) Object.keys(P).forEach(function(k){ if(s.p[k] !== undefined) P[k] = s.p[k]; });
     P.cats = Object.assign({}, CATS0, P.cats || {});
-    SCAN = s.scan || null; MAN = s.man || {}; ACK = s.ack || {}; SEOP = s.seo || null; SEVO = s.sevo || {}; PSI = s.psi || null; MANF = s.mf || []; KWRES = s.kwr || null; KWRES_NEW = s.kwrNew || null;
+    SCAN = s.scan || null; MAN = s.man || {}; ACK = s.ack || {}; SEOP = s.seo || null; SEVO = s.sevo || {}; PSI = s.psi || null; MANF = s.mf || []; ASG = s.asg || {}; KWRES = s.kwr || null; KWRES_NEW = s.kwrNew || null;
     if(KWRES_NEW && typeof KWR_BUSY !== "undefined" && !KWR_BUSY) KWR_ST = {pct:100, real:100, cap:100, stage:"write", lang:"he", i:0, n:1, t0:Date.now(), state:"done", ws:0};
     if(typeof kvTabCount === "function") kvTabCount();
     return true;
@@ -4389,6 +4434,7 @@ function w3dScanner(){
   $("tab-res").addEventListener("click", function(){ kvView("res"); window.scrollTo(0, 0); });
   $("res-go-setup").addEventListener("click", function(){ kvView("setup"); });
   $("mf-add").addEventListener("click", function(){ mfForm(null); });
+  $("team-cfg").addEventListener("click", function(e){ e.stopPropagation(); openCfg(false); teamEdit(); });
   $("tab-kw").addEventListener("click", function(){ kvView("kw"); });
   $("kw-file").addEventListener("click", function(){ $("kw-in").click(); });
   $("kw-in").addEventListener("change", function(){
@@ -4586,6 +4632,24 @@ function w3dScanner(){
       MANF = MANF.filter(function(x){ return x.id !== md.dataset.mfdel; }); delete SEVO["mf-" + md.dataset.mfdel];
       var y4 = scrollY; render(); save(); scrollTo(0, y4); say("הממצא נמחק"); return;
     }
+    var ap = e.target.closest && e.target.closest("[data-asgp]");
+    if(ap){
+      var apop = ap.parentNode.querySelector(".sevpop"), awas = !apop.hidden;
+      Array.prototype.forEach.call(document.querySelectorAll(".sevpop"), function(x){ x.hidden = true; });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-sevp],[data-asgp]"), function(x){ x.setAttribute("aria-expanded", "false"); });
+      if(!awas){ apop.hidden = false; ap.setAttribute("aria-expanded", "true"); var af = apop.querySelector('[aria-checked="true"]') || apop.querySelector("button"); if(af) af.focus(); }
+      return;
+    }
+    var as = e.target.closest && e.target.closest("[data-asgset]");
+    if(as){ asgSet(as.dataset.asgset, as.dataset.n); return; }
+    var an = e.target.closest && e.target.closest("[data-asgnew]");
+    if(an){
+      var aid = an.dataset.asgnew;
+      ovl("עובד חדש", '<p>השם יתווסף לרשימת הצוות, והממצא ישויך אליו.</p><input id="asg-in" maxlength="60" placeholder="שם">',
+        [{label:"הוספה ושיוך", primary:true, fn:function(){ var n = $("asg-in").value.trim(); if(!n) return; ovlClose(); asgSet(aid, n); }}, {label:"ביטול", fn:ovlClose}]);
+      setTimeout(function(){ var i = $("asg-in"); i.focus(); i.addEventListener("keydown", function(ev){ if(ev.key === "Enter"){ ev.preventDefault(); document.querySelector("#ovl-actions button").click(); } }); }, 30);
+      return;
+    }
     var sp = e.target.closest && e.target.closest("[data-sevp]");
     if(sp){
       var pop = sp.parentNode.querySelector(".sevpop"), was = !pop.hidden;
@@ -4671,7 +4735,7 @@ function w3dScanner(){
   });
   $("new").addEventListener("click", function(){
     if((SCAN || KWRES || KWRES_NEW) && !window.confirm("להתחיל בדיקה חדשה? הדוח" + (KWRES || KWRES_NEW ? " ומחקר המילים" : "") + " יימחקו מהדפדפן (שמור לקובץ אם צריך).")) return;
-    SITE = {url:"", prod:""}; REQ = {name:"", a11y:"none", inner:null, lang:false, feat:[], excluded:[], source:"", ignore:"", noidx:"", kw:{must:"", should:"", nice:"", src:""}}; ACK = {}; SEOP = null; SEVO = {}; PSI = null; MANF = []; RTAB = "all"; LVL = "all";
+    SITE = {url:"", prod:""}; REQ = {name:"", a11y:"none", inner:null, lang:false, feat:[], excluded:[], source:"", ignore:"", noidx:"", kw:{must:"", should:"", nice:"", src:""}}; ACK = {}; SEOP = null; SEVO = {}; PSI = null; MANF = []; ASG = {}; RTAB = "all"; LVL = "all";
     SCAN = null; MAN = {}; OPEN = {};
     KWRES = null; if(!KWR_BUSY){ KWRES_NEW = null; KWR_ST = null; } KWV.open = {}; kwrPaint(); kvTabCount(); if(!$("view-kw").hidden) kvRender();
     fillForm(); scanState(); render(); save(); kvView("setup");
